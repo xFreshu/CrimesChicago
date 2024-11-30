@@ -1,8 +1,23 @@
-xarray==2023.7.0
-netCDF4==1.6.4
-h5netcdf==1.1.0
-scipy==1.11.3
-pandas==2.1.1
-numpy==1.24.2
-matplotlib==3.8.0
-netcdf4==1.6.4
+# Core data science packages
+pandas==1.5.3
+numpy==1.23.5
+scipy==1.10.1
+statsmodels==0.13.5
+
+# Visualization
+matplotlib==3.7.1
+seaborn==0.12.2
+
+# Jupyter environment
+jupyter==1.0.0
+notebook==6.5.4
+ipykernel==6.22.0
+
+# Optional tools
+scikit-learn==1.2.2
+plotly==5.14.1
+
+# Development tools
+black==23.3.0
+flake8==6.0.0
+pytest==7.3.1
