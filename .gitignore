@@ -4,7 +4,7 @@
 .idea
 /data/raw/*
 /data/processed/*
-
+/reports
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 

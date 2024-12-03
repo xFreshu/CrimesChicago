@@ -1,63 +1,46 @@
-import dash
-from dash import dcc, html, Input, Output
+import sys
+import os
+
+# Dodanie katalogu głównego do sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
+from dash import Dash, Input, Output
+from layout.base_layout import base_layout
+import pages.home as home
+import pages.visual_analysis as visual_analysis
+import pages.statistical_analysis as statistical_analysis
+import pages.advanced_analysis as advanced_analysis
+import pages.summary as summary
+import pages.not_found as not_found
 
 # Tworzenie instancji aplikacji
-app = dash.Dash(__name__)
+app = Dash(__name__)
 app.title = "Analiza Danych"
 
-# Layout aplikacji
-app.layout = html.Div([
-    # Nawigacja
-    html.Nav([
-        html.A("Strona Główna", href="/", className="nav-link"),
-        html.A("Analiza Wizualna Danych", href="/analiza-wizualna", className="nav-link"),
-        html.A("Analiza Statystyczna", href="/analiza-statystyczna", className="nav-link"),
-        html.A("Zaawansowana Analiza", href="/zaawansowana-analiza", className="nav-link"),
-        html.A("Podsumowanie/Wnioski", href="/podsumowanie", className="nav-link"),
-    ], className="nav-bar"),
-
-    # Dynamicznie zmieniany content
-    dcc.Location(id="url", refresh=False),
-    html.Div(id="page-content", className="content"),
-])
+# Ustawienie głównego layoutu
+app.layout = base_layout()
 
 
-# Callback do obsługi stron
+# Callback do obsługi routing
 @app.callback(
     Output("page-content", "children"),
     Input("url", "pathname")
 )
 def display_page(pathname):
     if pathname == "/":
-        return html.Div([
-            html.H1("Strona Główna"),
-            html.P("Witaj w aplikacji do analizy danych! Wybierz sekcję z nawigacji powyżej.")
-        ])
+        return home.layout()
     elif pathname == "/analiza-wizualna":
-        return html.Div([
-            html.H1("Analiza Wizualna Danych"),
-            html.P("Tutaj znajdziesz wizualizacje danych.")
-        ])
+        return visual_analysis.layout()
     elif pathname == "/analiza-statystyczna":
-        return html.Div([
-            html.H1("Analiza Statystyczna"),
-            html.P("Tutaj przeprowadzimy analizę statystyczną.")
-        ])
+        return statistical_analysis.layout()
     elif pathname == "/zaawansowana-analiza":
-        return html.Div([
-            html.H1("Zaawansowana Analiza"),
-            html.P("Zaawansowane modele i techniki analizy.")
-        ])
+        return advanced_analysis.layout()
     elif pathname == "/podsumowanie":
-        return html.Div([
-            html.H1("Podsumowanie/Wnioski"),
-            html.P("Tutaj znajdziesz podsumowanie i wnioski z analizy.")
-        ])
+        return summary.layout()
     else:
-        return html.Div([
-            html.H1("404 - Nie znaleziono strony"),
-            html.P("Przepraszamy, ale strona, której szukasz, nie istnieje.")
-        ])
+        return not_found.layout()
 
 
 # Uruchomienie serwera
