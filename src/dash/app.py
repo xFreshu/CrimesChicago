@@ -23,6 +23,7 @@ app.title = "Analiza Danych"
 app.layout = base_layout()
 
 
+
 # Callback do obsługi routing
 @app.callback(
     Output("page-content", "children"),
