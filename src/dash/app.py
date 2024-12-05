@@ -1,12 +1,12 @@
 import sys
 import os
 
-# Dodanie katalogu głównego do sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.append(current_dir)
 
 from dash import Dash, Input, Output
+import dash_bootstrap_components as dbc
 from layout.base_layout import base_layout
 import pages.home as home
 import pages.visual_analysis as visual_analysis
@@ -15,16 +15,18 @@ import pages.advanced_analysis as advanced_analysis
 import pages.summary as summary
 import pages.not_found as not_found
 
-# Tworzenie instancji aplikacji
-app = Dash(__name__)
+app = Dash(
+    __name__,
+    external_stylesheets=[dbc.themes.BOOTSTRAP],
+    suppress_callback_exceptions=True
+)
 app.title = "Analiza Danych"
-
-# Ustawienie głównego layoutu
 app.layout = base_layout()
 
+# Register callbacks from visual_analysis
+visual_analysis.register_callbacks(app)
 
 
-# Callback do obsługi routing
 @app.callback(
     Output("page-content", "children"),
     Input("url", "pathname")
@@ -44,6 +46,5 @@ def display_page(pathname):
         return not_found.layout()
 
 
-# Uruchomienie serwera
 if __name__ == "__main__":
     app.run_server(debug=True)

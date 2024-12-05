@@ -30,9 +30,11 @@ def preprocess_and_merge(input_file1, input_file2, input_file3, output_file):
 
         # Filtracja zbędnych kolumn
         columns_to_keep = [
-            'Case Number', 'Date', 'Primary Type', 'Description',
+            'ID', 'Case Number', 'Date', 'Primary Type', 'Description',
             'Location Description', 'Arrest', 'Domestic', 'Beat',
-            'District', 'Ward', 'Community Area', 'FBI Code', 'Year', 'Month', 'Day', 'Hour'
+            'District', 'Ward', 'Community Area', 'FBI Code', 'Latitude',
+            'Longitude', 'Year', 'Month', 'Day', 'Hour', 'X Coordinate', 'Y Coordinate',
+            'Location'
         ]
         df = df[columns_to_keep]
 

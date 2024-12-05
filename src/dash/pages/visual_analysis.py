@@ -1,90 +1,184 @@
-import os
-import sqlite3
+from dash import html, dcc, Output, Input
+import dash_bootstrap_components as dbc
 import pandas as pd
-from dash import html, dcc, callback, Output, Input
+import sqlite3
 import plotly.express as px
+import os
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(current_dir))
+DB_PATH = os.path.join(project_root, 'scripts', 'chicago_crimes.db')
 
 
-# Funkcja do ładowania danych z bazy SQLite
-def load_data():
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    db_path = os.path.join(BASE_DIR, "../../scripts/chicago_crimes.db")
-
-    # Diagnostyka: wyświetl ścieżkę do bazy danych
-    print(f"Ścieżka do bazy danych: {db_path}")
-
-    if not os.path.exists(db_path):
-        raise FileNotFoundError(f"Plik bazy danych nie został znaleziony: {db_path}")
-
-    conn = sqlite3.connect(db_path)
-    df = pd.read_sql_query("SELECT * FROM ChicagoCrimes", conn)
-    conn.close()
-
-    # Diagnostyka: liczba rekordów
-    print(f"Liczba rekordów w bazie: {len(df)}")
-    return df
-
-
-# Przygotowanie wizualizacji
-def prepare_visualizations():
-    df = load_data()
-    df['Date'] = pd.to_datetime(df['Date'])  # Konwersja kolumny Date na typ datetime
-    df['Year'] = df['Date'].dt.year
-    df['Month'] = df['Date'].dt.month
-    df['Hour'] = df['Date'].dt.hour
-
-    crime_count_by_month = df.groupby('Month')['CaseNumber'].count().reset_index()
-    crime_count_by_hour = df.groupby('Hour')['CaseNumber'].count().reset_index()
-
-    fig_month = px.bar(
-        crime_count_by_month, x='Month', y='CaseNumber',
-        title="Liczba przestępstw w miesiącach",
-        labels={'Month': 'Miesiąc', 'CaseNumber': 'Liczba Przestępstw'}
-    )
-
-    fig_hour = px.bar(
-        crime_count_by_hour, x='Hour', y='CaseNumber',
-        title="Liczba przestępstw w godzinach",
-        labels={'Hour': 'Godzina', 'CaseNumber': 'Liczba Przestępstw'}
-    )
-
-    return fig_month, fig_hour
+def query_database():
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        query = """
+        SELECT 
+            Year, Month, PrimaryType, LocationDescription, Description,
+            Arrest, Domestic, Beat, District, Ward, CommunityArea,
+            Hour, COUNT(*) as count, 
+            SUM(Arrest) as arrests
+        FROM ChicagoCrimes
+        GROUP BY Year, Month, PrimaryType, LocationDescription, Description,
+                 Arrest, Domestic, Beat, District, Ward, CommunityArea, Hour
+        """
+        df = pd.read_sql_query(query, conn)
+        conn.close()
+        return df
+    except sqlite3.OperationalError as e:
+        print(f"Error: {e} | Path: {DB_PATH}")
+        return pd.DataFrame()
 
 
-# Layout strony
-def layout():
-    return html.Div([
-        html.H1("Analiza Wizualna Danych"),
-        html.P("Tutaj znajdziesz wizualizacje danych przestępstw."),
-        dcc.Loading(
-            id="loading-visual-analysis",
-            type="circle",  # Wskaźnik ładowania (circle lub dot)
-            children=[
-                html.Div(id="graphs-container")  # Miejsce, gdzie pojawią się wykresy
-            ]
-        )
+def create_skeleton_loading():
+    return dbc.Container([
+        dbc.Row([
+            dbc.Col(
+                dbc.Card(className="mb-4", children=[
+                    html.Div(style={
+                        "height": "400px",
+                        "background": "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)",
+                        "backgroundSize": "1000px 100%",
+                        "animation": "shimmer 2s infinite linear"
+                    }),
+                    html.Div(className="p-3", children=[
+                        html.Div(style={
+                            "height": "20px",
+                            "width": "60%",
+                            "background": "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)",
+                            "backgroundSize": "1000px 100%",
+                            "animation": "shimmer 2s infinite linear",
+                            "marginBottom": "10px"
+                        }),
+                        html.Div(style={
+                            "height": "40px",
+                            "background": "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)",
+                            "backgroundSize": "1000px 100%",
+                            "animation": "shimmer 2s infinite linear"
+                        })
+                    ])
+                ]),
+                width=12
+            )
+        ]),
+        dbc.Row([
+            dbc.Col(
+                [create_skeleton_chart("300px") for _ in range(2)],
+                width=6
+            ) for _ in range(2)
+        ])
     ])
 
 
-# Callback do dynamicznego ładowania danych
-@callback(
-    Output("graphs-container", "children"),
-    Input("graphs-container", "id")  # Wykonywane na inicjalizację
-)
-def update_graphs(_):
-    try:
-        fig_month, fig_hour = prepare_visualizations()
-        return [
-            dcc.Graph(figure=fig_month),
-            dcc.Graph(figure=fig_hour)
+def create_skeleton_chart(height):
+    return dbc.Card(
+        className="mb-4",
+        children=[
+            html.Div(style={
+                "height": height,
+                "background": "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)",
+                "backgroundSize": "1000px 100%",
+                "animation": "shimmer 2s infinite linear"
+            }),
+            html.Div(className="p-3", children=[
+                html.Div(style={
+                    "height": "15px",
+                    "width": "70%",
+                    "background": "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)",
+                    "backgroundSize": "1000px 100%",
+                    "animation": "shimmer 2s infinite linear",
+                    "marginBottom": "8px"
+                })
+            ])
         ]
-    except FileNotFoundError as e:
-        return html.Div([
-            html.H1("Błąd: Nie znaleziono bazy danych"),
-            html.P(str(e))
+    )
+
+
+def create_insight_card(title, text):
+    return dbc.Card(
+        dbc.CardBody([
+            html.H5(title, className="mb-2"),
+            html.P(text)
+        ]),
+        className="mb-4"
+    )
+
+
+def layout():
+    return html.Div([
+        html.H1("Analiza Przestępczości Chicago", className="mb-4 text-center"),
+        html.Div(id="loading-graphs", children=create_skeleton_loading())
+    ])
+
+
+def create_charts(df):
+    charts = {
+        'time_trend': px.line(
+            df.groupby(['Year', 'Month'])['count'].sum().reset_index(),
+            x='Month', y='count', color='Year',
+            title='Trend przestępczości'
+        ).update_xaxes(
+            tickmode='array',
+            ticktext=['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
+                      'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'],
+            tickvals=list(range(1, 13))
+        ),
+        'hourly_trend': px.bar(
+            df.groupby('Hour')['count'].sum().reset_index(),
+            x='Hour', y='count',
+            title='Rozkład przestępstw w ciągu doby'
+        ),
+        'location_dist': px.treemap(
+            df.groupby('LocationDescription')['count'].sum().reset_index(),
+            path=['LocationDescription'],
+            values='count',
+            title='Rozkład lokalizacji przestępstw'
+        ),
+        'arrest_stats': px.bar(
+            df.groupby('PrimaryType').agg({'count': 'sum', 'arrests': 'sum'})
+            .reset_index().nlargest(10, 'count'),
+            x='PrimaryType', y=['count', 'arrests'],
+            title='Przestępstwa vs Aresztowania',
+            barmode='group'
+        )
+    }
+
+    insights = {
+        'time': "Analiza ujawnia wyraźne wzorce sezonowe w przestępczości, ze wzrostem w miesiącach letnich.",
+        'hourly': "Największa liczba przestępstw występuje w godzinach popołudniowych i wieczornych.",
+        'location': "Przestępstwa najczęściej mają miejsce na ulicach i w miejscach publicznych.",
+        'arrests': "Skuteczność aresztowań różni się znacząco w zależności od typu przestępstwa."
+    }
+
+    return dbc.Container([
+        dbc.Row(dbc.Col(dcc.Graph(figure=charts['time_trend']), width=12), className="mb-4"),
+        dbc.Row([
+            dbc.Col([
+                dcc.Graph(figure=charts['hourly_trend']),
+                create_insight_card("Analiza godzinowa", insights['hourly'])
+            ], width=6),
+            dbc.Col([
+                dcc.Graph(figure=charts['location_dist']),
+                create_insight_card("Analiza lokalizacji", insights['location'])
+            ], width=6)
+        ], className="mb-4"),
+        dbc.Row([
+            dbc.Col([
+                dcc.Graph(figure=charts['arrest_stats']),
+                create_insight_card("Skuteczność aresztowań", insights['arrests'])
+            ], width=12)
         ])
-    except Exception as e:
-        return html.Div([
-            html.H1("Błąd"),
-            html.P(f"Nieoczekiwany błąd: {e}")
-        ])
+    ])
+
+
+def register_callbacks(app):
+    @app.callback(
+        Output("loading-graphs", "children"),
+        Input("loading-graphs", "id")
+    )
+    def update_graphs(_):
+        df = query_database()
+        if df.empty:
+            return dbc.Alert("Błąd dostępu do bazy danych.", color="danger")
+        return create_charts(df)

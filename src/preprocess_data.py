@@ -37,7 +37,8 @@ def preprocess_data(input_csv, output_csv):
             'ID', 'Case Number', 'Date', 'Primary Type', 'Description',
             'Location Description', 'Arrest', 'Domestic', 'Beat',
             'District', 'Ward', 'Community Area', 'FBI Code', 'Latitude',
-            'Longitude', 'Year', 'Month', 'Day', 'Hour'
+            'Longitude', 'Year', 'Month', 'Day', 'Hour', 'X Coordinate', 'Y Coordinate',
+            'Location'
         ]
         df = df[columns_to_keep]
 
