@@ -1,6 +1,6 @@
 import pandas as pd
 
-def preprocess_and_merge(input_file1, input_file2, input_file3, output_file):
+def preprocess_and_merge(input_file1, input_file2, output_file):
     try:
         print(f"Wczytywanie pliku: {input_file1}")
         df1 = pd.read_csv(input_file1, on_bad_lines='skip')
@@ -8,12 +8,9 @@ def preprocess_and_merge(input_file1, input_file2, input_file3, output_file):
         print(f"Wczytywanie pliku: {input_file2}")
         df2 = pd.read_csv(input_file2, on_bad_lines='skip')
 
-        print(f"Wczytywanie pliku: {input_file3}")
-        df3 = pd.read_csv(input_file3, on_bad_lines='skip')
-
         # Łączenie plików
         print("Łączenie danych...")
-        df = pd.concat([df1, df2, df3], ignore_index=True)
+        df = pd.concat([df1, df2], ignore_index=True)
 
         # Konwersja kolumny `Date` na datetime
         print("Przetwarzanie danych...")
@@ -53,12 +50,11 @@ def preprocess_and_merge(input_file1, input_file2, input_file3, output_file):
         return None
 
 
-input_csv1 = "../data/raw/Chicago_Crimes_2005_to_2007.csv"
-input_csv2 = "../data/raw/Chicago_Crimes_2008_to_2011.csv"
-input_csv3 = "../data/raw/Chicago_Crimes_2012_to_2017.csv"
-output_csv = "../data/processed/Chicago_Crimes_2005_to_2017.csv"
+input_csv1 = "../data/raw/Chicago_Crimes_2008_to_2011.csv"
+input_csv2 = "../data/raw/Chicago_Crimes_2012_to_2017.csv"
+output_csv = "../data/processed/Chicago_Crimes_2008_to_2017.csv"
 
-merged_df = preprocess_and_merge(input_csv1, input_csv2, input_csv3, output_csv)
+merged_df = preprocess_and_merge(input_csv1, input_csv2, output_csv)
 
 if merged_df is not None:
     print("Przykładowe dane połączone i przetworzone:")

@@ -44,4 +44,4 @@ CREATE TABLE IF NOT EXISTS ChicagoCrimes (
 
 if __name__ == "__main__":
     create_table()
-    print("Database and table created successfully.")
+    print("Tabela utworzona pomyślnie.")

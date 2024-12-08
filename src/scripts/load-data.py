@@ -2,10 +2,11 @@ import sqlite3
 import pandas as pd
 
 # Nazwa pliku CSV i bazy danych
-CSV_FILE = "../../data/processed/Chicago_Crimes_2005_to_2017.csv"
+CSV_FILE = "../../data/processed/Chicago_Crimes_2008_to_2017.csv"
 DB_NAME = "chicago_crimes.db"
 
 def load_data():
+    print("Wczytywanie danych...")
     conn = sqlite3.connect(DB_NAME)
 
     # Wczytanie danych z CSV
@@ -28,4 +29,4 @@ def load_data():
 
 if __name__ == "__main__":
     load_data()
-    print("Data loaded into the database successfully.")
+    print("Dane wczytane do bazy SQLite.")
