@@ -21,10 +21,13 @@ app = Dash(
     suppress_callback_exceptions=True
 )
 app.title = "Analiza Danych"
-app.layout = base_layout()
 
-# Register callbacks from visual_analysis
+# Rejestracja callbacków przed zdefiniowaniem layoutu
 visual_analysis.register_callbacks(app)
+statistical_analysis.register_callbacks(app)
+
+# Ustawienie głównego layoutu
+app.layout = base_layout()
 
 
 @app.callback(
