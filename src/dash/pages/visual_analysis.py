@@ -170,8 +170,8 @@ def create_charts(df):
     return dbc.Container([
         dbc.Row(dbc.Col(dcc.Graph(figure=time_trend), width=12), className="mb-4"),
         dbc.Row([
-            dbc.Col(dcc.Graph(figure=hourly_trend), width=6),
-            dbc.Col(dcc.Graph(figure=location_dist), width=6)
+            dbc.Col(dcc.Graph(figure=hourly_trend), width=12),
+            dbc.Col(dcc.Graph(figure=location_dist), width=12)
         ], className="mb-4"),
         dbc.Row(dbc.Col(dcc.Graph(figure=arrest_stats), width=12))
     ])
