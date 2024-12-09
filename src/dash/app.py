@@ -25,6 +25,7 @@ app.title = "Analiza Danych"
 # Rejestracja callbacków przed zdefiniowaniem layoutu
 visual_analysis.register_callbacks(app)
 statistical_analysis.register_callbacks(app)
+advanced_analysis.register_callbacks(app)
 
 # Ustawienie głównego layoutu
 app.layout = base_layout()
