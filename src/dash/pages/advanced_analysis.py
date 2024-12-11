@@ -1,9 +1,7 @@
-from dash import html, dcc, Input, Output, State, callback_context, ctx
-from dash.exceptions import PreventUpdate
+from dash import html, dcc, Input, Output, State
 import dash_bootstrap_components as dbc
 import pandas as pd
 import sqlite3
-import plotly.express as px
 import plotly.graph_objects as go
 from statsmodels.tsa.arima.model import ARIMA
 import os
@@ -43,40 +41,6 @@ def query_database(year_filter=None):
     except sqlite3.OperationalError as e:
         print(f"Błąd bazy danych: {e}")
         return pd.DataFrame()
-
-
-def create_skeleton_loading():
-    """
-    Tworzy animowany wskaźnik ładowania
-    """
-    return dbc.Container([
-        dbc.Row([
-            dbc.Col(
-                dbc.Card(className="mb-4", children=[
-                    html.Div(style={
-                        "height": "400px",
-                        "background": "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)",
-                        "backgroundSize": "1000px 100%",
-                        "animation": "shimmer 2s infinite linear"
-                    })
-                ]),
-                width=12
-            )
-        ]),
-        dbc.Row([
-            dbc.Col(
-                dbc.Card(className="mb-4", children=[
-                    html.Div(style={
-                        "height": "300px",
-                        "background": "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)",
-                        "backgroundSize": "1000px 100%",
-                        "animation": "shimmer 2s infinite linear"
-                    })
-                ]),
-                width=12
-            ) for _ in range(2)
-        ])
-    ])
 
 
 def create_arima_controls():
@@ -194,25 +158,19 @@ def create_time_series_analysis(df, p=1, d=1, q=1):
     """
     Tworzy analizę szeregów czasowych z prognozą ARIMA
     """
-    # Przygotowanie danych
     df_ts = df.groupby(['Year', 'Month'])['count'].sum().reset_index()
     df_ts['date'] = pd.to_datetime(df_ts['Year'].astype(str) + '-' + df_ts['Month'].astype(str) + '-01')
     df_ts = df_ts.set_index('date').sort_index()
 
     try:
-        # Model ARIMA
         model = ARIMA(df_ts['count'], order=(p, d, q))
         model_fit = model.fit()
-
-        # Prognoza z przedziałami ufności
         forecast = model_fit.get_forecast(steps=12)
         forecast_mean = forecast.predicted_mean
         forecast_ci = forecast.conf_int()
 
-        # Tworzenie wykresu
         fig = go.Figure()
 
-        # Dane historyczne
         fig.add_trace(go.Scatter(
             x=df_ts.index,
             y=df_ts['count'],
@@ -220,7 +178,6 @@ def create_time_series_analysis(df, p=1, d=1, q=1):
             line=dict(color='#2ecc71')
         ))
 
-        # Prognoza
         fig.add_trace(go.Scatter(
             x=forecast_mean.index,
             y=forecast_mean,
@@ -228,7 +185,6 @@ def create_time_series_analysis(df, p=1, d=1, q=1):
             line=dict(color='purple', dash='dash')
         ))
 
-        # Przedziały ufności
         fig.add_trace(go.Scatter(
             x=forecast_ci.index,
             y=forecast_ci.iloc[:, 0],
@@ -248,7 +204,6 @@ def create_time_series_analysis(df, p=1, d=1, q=1):
             fillcolor='rgba(128, 0, 128, 0.2)'
         ))
 
-        # Ustawienia wykresu
         fig.update_layout(
             title=f'Analiza szeregów czasowych z prognozą ARIMA({p},{d},{q})',
             xaxis_title="Data",
@@ -263,7 +218,6 @@ def create_time_series_analysis(df, p=1, d=1, q=1):
             )
         )
 
-        # Metryki modelu
         aic = model_fit.aic
         bic = model_fit.bic
 
@@ -330,23 +284,7 @@ def register_callbacks(app):
          State("arima-q", "value")],
         prevent_initial_call=True
     )
-    def show_loading_state(n_clicks, single_year, year_range, range_type, p, d, q):
-        if n_clicks is None:
-            return html.Div()
-        return create_skeleton_loading()
-
-    @app.callback(
-        Output("advanced-content", "children", allow_duplicate=True),
-        [Input("advanced-content", "children")],
-        [State("advanced-single-year-dropdown", "value"),
-         State("advanced-year-range-slider", "value"),
-         State("advanced-date-range-type", "value"),
-         State("arima-p", "value"),
-         State("arima-d", "value"),
-         State("arima-q", "value")],
-        prevent_initial_call=True
-    )
-    def update_analysis(_, single_year, year_range, range_type, p, d, q):
+    def update_analysis(n_clicks, single_year, year_range, range_type, p, d, q):
         year_filter = None
         if range_type == 'single':
             year_filter = single_year
