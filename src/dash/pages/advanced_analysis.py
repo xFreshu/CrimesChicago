@@ -4,8 +4,8 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import sqlite3
 import plotly.express as px
+import plotly.graph_objects as go
 from statsmodels.tsa.arima.model import ARIMA
-from pyspark.sql import SparkSession
 import os
 
 # Konfiguracja ścieżek
@@ -14,7 +14,10 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 DB_PATH = os.path.join(project_root, 'scripts', 'chicago_crimes.db')
 
 
-def query_database(year_filter=None, month=None):
+def query_database(year_filter=None):
+    """
+    Pobiera dane z bazy SQLite z opcjonalnym filtrem roku
+    """
     try:
         conn = sqlite3.connect(DB_PATH)
         base_query = """
@@ -29,9 +32,6 @@ def query_database(year_filter=None, month=None):
         elif year_filter:
             base_query += f" AND Year = {year_filter}"
 
-        if month and month != 'all':
-            base_query += f" AND Month = {month}"
-
         base_query += """ 
         GROUP BY Year, Month, PrimaryType
         ORDER BY Year, Month
@@ -42,11 +42,13 @@ def query_database(year_filter=None, month=None):
         return df
     except sqlite3.OperationalError as e:
         print(f"Błąd bazy danych: {e}")
-        print(f"Zapytanie: {base_query}")
         return pd.DataFrame()
 
 
 def create_skeleton_loading():
+    """
+    Tworzy animowany wskaźnik ładowania
+    """
     return dbc.Container([
         dbc.Row([
             dbc.Col(
@@ -77,7 +79,70 @@ def create_skeleton_loading():
     ])
 
 
+def create_arima_controls():
+    """
+    Tworzy kontrolki do parametrów modelu ARIMA
+    """
+    return dbc.Card(
+        dbc.CardBody([
+            html.H4("Parametry modelu ARIMA", className="mb-3"),
+            dbc.Row([
+                dbc.Col([
+                    html.Label("p (autoregresja)"),
+                    dcc.Slider(
+                        id='arima-p',
+                        min=0,
+                        max=3,
+                        step=1,
+                        value=1,
+                        marks={i: str(i) for i in range(4)},
+                        className="mb-3"
+                    )
+                ], width=4),
+                dbc.Col([
+                    html.Label("d (różnicowanie)"),
+                    dcc.Slider(
+                        id='arima-d',
+                        min=0,
+                        max=2,
+                        step=1,
+                        value=1,
+                        marks={i: str(i) for i in range(3)},
+                        className="mb-3"
+                    )
+                ], width=4),
+                dbc.Col([
+                    html.Label("q (średnia ruchoma)"),
+                    dcc.Slider(
+                        id='arima-q',
+                        min=0,
+                        max=3,
+                        step=1,
+                        value=1,
+                        marks={i: str(i) for i in range(4)},
+                        className="mb-3"
+                    )
+                ], width=4)
+            ]),
+            dbc.Row([
+                dbc.Col([
+                    dbc.Button(
+                        "Aktualizuj model",
+                        id="update-arima-button",
+                        color="primary",
+                        className="w-100"
+                    )
+                ])
+            ])
+        ]),
+        className="mb-4"
+    )
+
+
 def create_year_selector():
+    """
+    Tworzy selektor zakresu lat
+    """
     return dbc.Card(
         dbc.CardBody([
             html.H4("Wybór okresu analizy", className="mb-3"),
@@ -100,30 +165,7 @@ def create_year_selector():
                                      for year in range(2008, 2016)],
                             value=2008,
                             placeholder="Wybierz rok"
-                        ),
-                        html.Div([
-                            html.P("Wybierz miesiąc (opcjonalnie):", className="mt-3"),
-                            dcc.Dropdown(
-                                id='advanced-month-dropdown',
-                                options=[
-                                    {'label': 'Wszystkie miesiące', 'value': 'all'},
-                                    {'label': 'Styczeń', 'value': 1},
-                                    {'label': 'Luty', 'value': 2},
-                                    {'label': 'Marzec', 'value': 3},
-                                    {'label': 'Kwiecień', 'value': 4},
-                                    {'label': 'Maj', 'value': 5},
-                                    {'label': 'Czerwiec', 'value': 6},
-                                    {'label': 'Lipiec', 'value': 7},
-                                    {'label': 'Sierpień', 'value': 8},
-                                    {'label': 'Wrzesień', 'value': 9},
-                                    {'label': 'Październik', 'value': 10},
-                                    {'label': 'Listopad', 'value': 11},
-                                    {'label': 'Grudzień', 'value': 12}
-                                ],
-                                value='all',
-                                placeholder="Wybierz miesiąc"
-                            )
-                        ], className="mt-2")
+                        )
                     ]
                 ),
                 html.Div(
@@ -142,143 +184,155 @@ def create_year_selector():
                         )
                     ]
                 )
-            ]),
-            dbc.Button(
-                "Generuj analizę zaawansowaną",
-                id="advanced-generate-button",
-                color="primary",
-                className="mt-3 w-100"
-            )
+            ])
         ]),
         className="mb-4"
     )
 
 
-def create_time_series_analysis(df):
+def create_time_series_analysis(df, p=1, d=1, q=1):
+    """
+    Tworzy analizę szeregów czasowych z prognozą ARIMA
+    """
+    # Przygotowanie danych
     df_ts = df.groupby(['Year', 'Month'])['count'].sum().reset_index()
     df_ts['date'] = pd.to_datetime(df_ts['Year'].astype(str) + '-' + df_ts['Month'].astype(str) + '-01')
     df_ts = df_ts.set_index('date').sort_index()
 
-    model = ARIMA(df_ts['count'], order=(1, 1, 1))
-    model_fit = model.fit()
-    forecast = model_fit.forecast(steps=12)
+    try:
+        # Model ARIMA
+        model = ARIMA(df_ts['count'], order=(p, d, q))
+        model_fit = model.fit()
 
-    # Tworzenie wykresu z jedną linią dla danych rzeczywistych
-    fig = px.line(
-        df_ts,
-        y='count',
-        title='Analiza szeregów czasowych z prognozą',
-        template='plotly_white'
-    )
+        # Prognoza z przedziałami ufności
+        forecast = model_fit.get_forecast(steps=12)
+        forecast_mean = forecast.predicted_mean
+        forecast_ci = forecast.conf_int()
 
-    # Dodanie linii prognozy
-    fig.add_scatter(
-        x=forecast.index,
-        y=forecast,
-        mode='lines',
-        name='Prognoza',
-        line=dict(dash='dash', color='purple')
-    )
+        # Tworzenie wykresu
+        fig = go.Figure()
 
-    # Konfiguracja layoutu
-    fig.update_layout(
-        height=500,
-        xaxis_title="Data",
-        yaxis_title="Liczba przestępstw",
-        showlegend=True,
-        # Ustawienie kolorów i legendy
-        legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01
+        # Dane historyczne
+        fig.add_trace(go.Scatter(
+            x=df_ts.index,
+            y=df_ts['count'],
+            name='Dane historyczne',
+            line=dict(color='#2ecc71')
+        ))
+
+        # Prognoza
+        fig.add_trace(go.Scatter(
+            x=forecast_mean.index,
+            y=forecast_mean,
+            name='Prognoza',
+            line=dict(color='purple', dash='dash')
+        ))
+
+        # Przedziały ufności
+        fig.add_trace(go.Scatter(
+            x=forecast_ci.index,
+            y=forecast_ci.iloc[:, 0],
+            fill=None,
+            mode='lines',
+            line=dict(color='rgba(128, 0, 128, 0)'),
+            showlegend=False
+        ))
+
+        fig.add_trace(go.Scatter(
+            x=forecast_ci.index,
+            y=forecast_ci.iloc[:, 1],
+            fill='tonexty',
+            mode='lines',
+            line=dict(color='rgba(128, 0, 128, 0)'),
+            name='Przedział ufności 95%',
+            fillcolor='rgba(128, 0, 128, 0.2)'
+        ))
+
+        # Ustawienia wykresu
+        fig.update_layout(
+            title=f'Analiza szeregów czasowych z prognozą ARIMA({p},{d},{q})',
+            xaxis_title="Data",
+            yaxis_title="Liczba przestępstw",
+            height=500,
+            showlegend=True,
+            legend=dict(
+                yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=0.01
+            )
         )
-    )
 
-    # Aktualizacja pierwszej linii (dane rzeczywiste)
-    fig.data[0].update(name='Liczba przestępstw', line=dict(color='#2ecc71'))
+        # Metryki modelu
+        aic = model_fit.aic
+        bic = model_fit.bic
 
-    return dcc.Graph(figure=fig)
+        metrics_div = html.Div([
+            html.H5("Metryki modelu:", className="mt-3"),
+            html.Ul([
+                html.Li(f"AIC: {aic:.2f}"),
+                html.Li(f"BIC: {bic:.2f}")
+            ])
+        ])
 
+        return dbc.Card([
+            dbc.CardBody([
+                dcc.Graph(figure=fig),
+                metrics_div
+            ])
+        ])
 
-def create_crime_type_analysis(df):
-    fig = px.bar(
-        df.groupby('PrimaryType')['count'].sum().reset_index().sort_values('count', ascending=False).head(10),
-        x='PrimaryType',
-        y='count',
-        title='Top 10 typów przestępstw',
-        template='plotly_white'
-    )
-
-    fig.update_layout(
-        height=400,
-        xaxis_title="Typ przestępstwa",
-        yaxis_title="Liczba przypadków"
-    )
-
-    return dcc.Graph(figure=fig)
-
-
-def create_monthly_patterns(df):
-    monthly_avg = df.groupby('Month')['count'].mean().reset_index()
-
-    fig = px.line(
-        monthly_avg,
-        x='Month',
-        y='count',
-        title='Średnia liczba przestępstw w miesiącach',
-        template='plotly_white'
-    )
-
-    fig.update_xaxes(
-        ticktext=['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
-                  'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'],
-        tickvals=list(range(1, 13))
-    )
-
-    fig.update_layout(
-        height=400,
-        xaxis_title="Miesiąc",
-        yaxis_title="Średnia liczba przestępstw"
-    )
-
-    return dcc.Graph(figure=fig)
+    except Exception as e:
+        return dbc.Alert(
+            f"Błąd w tworzeniu modelu ARIMA: {str(e)}",
+            color="danger",
+            className="mt-3"
+        )
 
 
 def layout():
+    """
+    Główny układ aplikacji
+    """
     return html.Div([
         html.H1("Zaawansowana Analiza Danych", className="mb-4 text-center"),
         dbc.Row([
-            dbc.Col(create_year_selector(), width=12)
+            dbc.Col(create_year_selector(), width=12),
+            dbc.Col(create_arima_controls(), width=12)
         ]),
         html.Div(id="advanced-content")
     ])
 
 
 def register_callbacks(app):
+    """
+    Rejestruje callbacki aplikacji
+    """
+
     @app.callback(
         [Output('advanced-year-range-container', 'style'),
-         Output('advanced-single-year-container', 'style'),
-         Output('advanced-month-dropdown', 'disabled')],
+         Output('advanced-single-year-container', 'style')],
         Input('advanced-date-range-type', 'value')
     )
     def toggle_year_selector(selector_type):
         if selector_type == 'range':
-            return {'display': 'block'}, {'display': 'none'}, True
-        return {'display': 'none'}, {'display': 'block'}, False
+            return {'display': 'block'}, {'display': 'none'}
+        return {'display': 'none'}, {'display': 'block'}
 
     @app.callback(
         Output("advanced-content", "children"),
-        [Input("advanced-generate-button", "n_clicks")],
+        [Input("update-arima-button", "n_clicks")],
         [State("advanced-single-year-dropdown", "value"),
          State("advanced-year-range-slider", "value"),
          State("advanced-date-range-type", "value"),
-         State("advanced-month-dropdown", "value")]
+         State("arima-p", "value"),
+         State("arima-d", "value"),
+         State("arima-q", "value")],
+        prevent_initial_call=True
     )
-    def update_analysis(n_clicks, single_year, year_range, range_type, month):
+    def show_loading_state(n_clicks, single_year, year_range, range_type, p, d, q):
         if n_clicks is None:
             return html.Div()
-
         return create_skeleton_loading()
 
     @app.callback(
@@ -287,17 +341,19 @@ def register_callbacks(app):
         [State("advanced-single-year-dropdown", "value"),
          State("advanced-year-range-slider", "value"),
          State("advanced-date-range-type", "value"),
-         State("advanced-month-dropdown", "value")],
+         State("arima-p", "value"),
+         State("arima-d", "value"),
+         State("arima-q", "value")],
         prevent_initial_call=True
     )
-    def load_data(_, single_year, year_range, range_type, month):
+    def update_analysis(_, single_year, year_range, range_type, p, d, q):
         year_filter = None
         if range_type == 'single':
             year_filter = single_year
         else:
             year_filter = tuple(year_range)
 
-        df = query_database(year_filter, month)
+        df = query_database(year_filter)
 
         if df.empty:
             return dbc.Alert(
@@ -306,14 +362,4 @@ def register_callbacks(app):
                 className="mt-3"
             )
 
-        return dbc.Container([
-            dbc.Row([
-                dbc.Col(create_time_series_analysis(df), width=12)
-            ], className="mb-4"),
-            dbc.Row([
-                dbc.Col(create_crime_type_analysis(df), width=12)
-            ], className="mb-4"),
-            dbc.Row([
-                dbc.Col(create_monthly_patterns(df), width=12)
-            ])
-        ])
+        return create_time_series_analysis(df, p, d, q)

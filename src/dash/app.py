@@ -12,7 +12,6 @@ import pages.home as home
 import pages.visual_analysis as visual_analysis
 import pages.statistical_analysis as statistical_analysis
 import pages.advanced_analysis as advanced_analysis
-import pages.summary as summary
 import pages.not_found as not_found
 
 app = Dash(
@@ -44,8 +43,6 @@ def display_page(pathname):
         return statistical_analysis.layout()
     elif pathname == "/zaawansowana-analiza":
         return advanced_analysis.layout()
-    elif pathname == "/podsumowanie":
-        return summary.layout()
     else:
         return not_found.layout()
 
