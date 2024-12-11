@@ -142,7 +142,7 @@ def create_year_selector():
                 )
             ]),
             dbc.Button(
-                "Generuj analizę korelacji",
+                "Generuj diagramy",
                 id="stats-generate-button",
                 color="primary",
                 className="mt-3 w-100"
@@ -153,7 +153,6 @@ def create_year_selector():
 
 
 def create_time_correlation_analysis(df_time):
-    # Analiza godzinowa
     df_time['day_of_week'] = pd.to_numeric(df_time['day_of_week'])
     days = ['Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota', 'Niedziela']
 
@@ -177,30 +176,6 @@ def create_time_correlation_analysis(df_time):
     weekly_trend.update_layout(template="plotly_white")
 
     return hourly_trend, weekly_trend
-
-
-def create_location_analysis(df_location):
-    location_heatmap = px.density_heatmap(
-        df_location,
-        x='LocationDescription',
-        y='PrimaryType',
-        z='count',
-        title='Mapa cieplna typów przestępstw według lokalizacji',
-        labels={'count': 'Liczba przestępstw'}
-    )
-    location_heatmap.update_layout(template="plotly_white", height=600)
-
-    top_locations = px.bar(
-        df_location.nlargest(10, 'count'),
-        x='count',
-        y='LocationDescription',
-        color='PrimaryType',
-        title='Top 10 najczęstszych lokalizacji przestępstw',
-        labels={'count': 'Liczba przestępstw', 'LocationDescription': 'Lokalizacja'}
-    )
-    top_locations.update_layout(template="plotly_white")
-
-    return location_heatmap, top_locations
 
 
 def create_law_enforcement_analysis(df_law):
@@ -235,7 +210,6 @@ def create_law_enforcement_analysis(df_law):
 
 def create_correlation_dashboard(df_time, df_location, df_law):
     hourly_trend, weekly_trend = create_time_correlation_analysis(df_time)
-    location_heatmap, top_locations = create_location_analysis(df_location)
     arrest_rate, crime_arrest_rate = create_law_enforcement_analysis(df_law)
 
     return dbc.Container([
@@ -245,15 +219,7 @@ def create_correlation_dashboard(df_time, df_location, df_law):
             dbc.Col(dcc.Graph(figure=weekly_trend), width=12)
         ], className="mb-4"),
 
-        html.H3("2. Analiza przestrzenna przestępczości", className="mt-4 mb-3"),
-        dbc.Row([
-            dbc.Col(dcc.Graph(figure=location_heatmap), width=12)
-        ], className="mb-4"),
-        dbc.Row([
-            dbc.Col(dcc.Graph(figure=top_locations), width=12)
-        ], className="mb-4"),
-
-        html.H3("3. Analiza egzekwowania prawa", className="mt-4 mb-3"),
+        html.H3("2. Analiza egzekwowania prawa", className="mt-4 mb-3"),
         dbc.Row([
             dbc.Col(dcc.Graph(figure=arrest_rate), width=12),
             dbc.Col(dcc.Graph(figure=crime_arrest_rate), width=12)
@@ -263,7 +229,7 @@ def create_correlation_dashboard(df_time, df_location, df_law):
 
 def layout():
     return html.Div([
-        html.H1("Analiza Korelacji Przestępczości", className="mb-4 text-center"),
+        html.H1("Analiza Statystyczna", className="mb-4 text-center"),
         dbc.Row([
             dbc.Col(create_year_selector(), width=12)
         ]),

@@ -180,7 +180,7 @@ def create_charts(df):
 def layout():
     """Główny układ strony"""
     return html.Div([
-        html.H1("Analiza Przestępczości Chicago", className="mb-4 text-center"),
+        html.H1("Analiza Wizualna Danych", className="mb-4 text-center"),
         dbc.Row([
             dbc.Col(create_year_selector(), width=12)
         ]),
