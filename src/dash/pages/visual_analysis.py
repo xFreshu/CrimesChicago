@@ -19,7 +19,7 @@ def query_database(year_filter=None):
         SELECT 
             Year, Month, PrimaryType, LocationDescription, Description,
             Arrest, Domestic, Beat, District, Ward, CommunityArea,
-            Hour, COUNT(*) as count, 
+            Hour, Latitude, Longitude, COUNT(*) as count, 
             SUM(Arrest) as arrests
         FROM ChicagoCrimes
         """
@@ -31,7 +31,8 @@ def query_database(year_filter=None):
 
         base_query += """
         GROUP BY Year, Month, PrimaryType, LocationDescription, Description,
-                 Arrest, Domestic, Beat, District, Ward, CommunityArea, Hour
+                 Arrest, Domestic, Beat, District, Ward, CommunityArea, Hour,
+                 Latitude, Longitude
         """
 
         df = pd.read_sql_query(base_query, conn)
@@ -42,35 +43,10 @@ def query_database(year_filter=None):
         return pd.DataFrame()
 
 
-def create_skeleton_loading():
-    """Tworzenie komponentu ładowania"""
-    return dbc.Container([
-        dbc.Row([
-            dbc.Col(
-                dbc.Card(className="mb-4", children=[
-                    html.Div(style={
-                        "height": "400px",
-                        "background": "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)",
-                        "backgroundSize": "1000px 100%",
-                        "animation": "shimmer 2s infinite linear"
-                    })
-                ]),
-                width=12
-            )
-        ]),
-        dbc.Row([
-            dbc.Col(
-                dbc.Card(className="mb-4", children=[
-                    html.Div(style={
-                        "height": "300px",
-                        "background": "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)",
-                        "backgroundSize": "1000px 100%",
-                        "animation": "shimmer 2s infinite linear"
-                    })
-                ]),
-                width=6
-            ) for _ in range(2)
-        ])
+def create_loading_message():
+    """Tworzenie komponentu z komunikatem ładowania"""
+    return html.Div([
+        html.H4("Ładowanie danych...", className="text-center mt-4")
     ])
 
 
@@ -129,7 +105,7 @@ def create_year_selector():
     )
 
 
-def create_charts(df):
+def create_charts(df, include_map):
     """Tworzenie wykresów na podstawie danych"""
     time_trend = px.line(
         df.groupby(['Year', 'Month'])['count'].sum().reset_index(),
@@ -167,14 +143,33 @@ def create_charts(df):
         barmode='group'
     )
 
-    return dbc.Container([
+    components = [
         dbc.Row(dbc.Col(dcc.Graph(figure=time_trend), width=12), className="mb-4"),
         dbc.Row([
             dbc.Col(dcc.Graph(figure=hourly_trend), width=12),
             dbc.Col(dcc.Graph(figure=location_dist), width=12)
         ], className="mb-4"),
         dbc.Row(dbc.Col(dcc.Graph(figure=arrest_stats), width=12))
-    ])
+    ]
+
+    if include_map:
+        crime_map = px.scatter_mapbox(
+            df,
+            lat="Latitude",
+            lon="Longitude",
+            hover_name="PrimaryType",
+            hover_data={"Arrest": True, "count": True},
+            color="PrimaryType",
+            title="Mapa przestępstw w Chicago",
+            mapbox_style="carto-positron",
+            zoom=10
+        )
+        components.append(dbc.Row(dbc.Col(dcc.Graph(figure=crime_map), width=12), className="mb-4"))
+    else:
+        components.append(
+            dbc.Alert("Mapa przestępstw nie może być wygenerowana dla zakresu lat.", color="warning", className="mt-4"))
+
+    return dbc.Container(components)
 
 
 def layout():
@@ -212,7 +207,7 @@ def register_callbacks(app):
         if n_clicks is None:
             return []
 
-        return create_skeleton_loading()
+        return create_loading_message()
 
     @app.callback(
         Output("loading-graphs", "children", allow_duplicate=True),
@@ -227,8 +222,11 @@ def register_callbacks(app):
             return []
 
         year_filter = None
+        include_map = False
+
         if range_type == 'single':
             year_filter = single_year
+            include_map = True
         else:
             year_filter = tuple(year_range)
 
@@ -237,4 +235,4 @@ def register_callbacks(app):
         if df.empty:
             return dbc.Alert("Brak danych dla wybranego okresu.", color="warning")
 
-        return create_charts(df)
+        return create_charts(df, include_map)
