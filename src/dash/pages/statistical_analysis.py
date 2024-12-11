@@ -84,18 +84,15 @@ def query_correlations(year_filter=None):
         return None, None, None
 
 
-def create_skeleton_loading():
+def create_loading_spinner():
     return dbc.Container([
         dbc.Row([
-            dbc.Col(dbc.Card(className="mb-4", children=[
-                html.Div(style={
-                    "height": "400px",
-                    "background": "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)",
-                    "backgroundSize": "1000px 100%",
-                    "animation": "shimmer 2s infinite linear"
-                })
+            dbc.Col(html.Div([
+                dbc.Spinner(color="primary", size="lg", fullscreen=True, children=[
+                    html.H4("Ładowanie danych...", className="text-center mt-3")
+                ])
             ]), width=12)
-        ]) for _ in range(3)
+        ])
     ])
 
 
@@ -258,7 +255,7 @@ def register_callbacks(app):
     def update_correlations(n_clicks, single_year, year_range, range_type):
         if n_clicks is None:
             return html.Div()
-        return create_skeleton_loading()
+        return create_loading_spinner()
 
     @app.callback(
         Output("stats-content", "children", allow_duplicate=True),
