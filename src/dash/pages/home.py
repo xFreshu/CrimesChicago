@@ -4,7 +4,7 @@ from dash import html
 def layout():
     return html.Div([
         html.Div([
-            html.H1("Analiza przestępczości w Chicago na podstawie danych z lat 2005–2017"),
+            html.H1("Analiza przestępczości w Chicago na podstawie danych z lat 2008–2017"),
             html.P([
                 "Niniejszy projekt opiera się na analizie publicznie dostępnych danych dotyczących przestępczości w Chicago, "
                 "udostępnionych na platformie Kaggle pod adresem ",
