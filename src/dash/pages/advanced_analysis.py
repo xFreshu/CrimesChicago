@@ -12,10 +12,8 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 DB_PATH = os.path.join(project_root, 'scripts', 'chicago_crimes.db')
 
 
+# tworzy zapytanie do bazy danych
 def query_database(year_filter=None):
-    """
-    Pobiera dane z bazy SQLite z opcjonalnym filtrem roku
-    """
     try:
         conn = sqlite3.connect(DB_PATH)
         base_query = """
@@ -43,10 +41,8 @@ def query_database(year_filter=None):
         return pd.DataFrame()
 
 
+# tworzy kontrolki do modelu ARIMA
 def create_arima_controls():
-    """
-    Tworzy kontrolki do parametrów modelu ARIMA
-    """
     return dbc.Card(
         dbc.CardBody([
             html.H4("Parametry modelu ARIMA", className="mb-3"),
@@ -103,10 +99,8 @@ def create_arima_controls():
     )
 
 
+# tworzy kontrolki do wyboru roku
 def create_year_selector():
-    """
-    Tworzy selektor zakresu lat
-    """
     return dbc.Card(
         dbc.CardBody([
             html.H4("Wybór okresu analizy", className="mb-3"),
@@ -154,10 +148,8 @@ def create_year_selector():
     )
 
 
+# tworzy analizę szeregów czasowych
 def create_time_series_analysis(df, p=1, d=1, q=1):
-    """
-    Tworzy analizę szeregów czasowych z prognozą ARIMA
-    """
     df_ts = df.groupby(['Year', 'Month'])['count'].sum().reset_index()
     df_ts['date'] = pd.to_datetime(df_ts['Year'].astype(str) + '-' + df_ts['Month'].astype(str) + '-01')
     df_ts = df_ts.set_index('date').sort_index()
@@ -234,9 +226,6 @@ def create_time_series_analysis(df, p=1, d=1, q=1):
 
 
 def layout():
-    """
-    Główny układ aplikacji
-    """
     return html.Div([
         html.H1("Zaawansowana Analiza Danych", className="mb-4 text-center"),
         dbc.Row([
@@ -247,11 +236,8 @@ def layout():
     ])
 
 
+# rejestruje funkcje zwrotne
 def register_callbacks(app):
-    """
-    Rejestruje callbacki aplikacji
-    """
-
     @app.callback(
         [Output('advanced-year-range-container', 'style'),
          Output('advanced-single-year-container', 'style')],
@@ -273,6 +259,7 @@ def register_callbacks(app):
          State("arima-q", "value")],
         prevent_initial_call=True
     )
+    # aktualizuje analizę
     def update_analysis(n_clicks, single_year, year_range, range_type, p, d, q):
         year_filter = None
         if range_type == 'single':

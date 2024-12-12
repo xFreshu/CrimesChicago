@@ -10,17 +10,15 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 DB_PATH = os.path.join(project_root, 'scripts', 'chicago_crimes.db')
 
 
+# tworzy komponent z komunikatem ładowania
 def create_loading_message():
-    """Tworzenie komponentu z komunikatem ładowania"""
     return html.Div([
         html.H4("Ładowanie danych...", className="text-center mt-4")
     ])
 
 
+# funkcja do pobierania danych z bazy danych
 def query_arrests_data(year_filter=None):
-    """
-    Pobiera dane o aresztowaniach i typach przestępstw
-    """
     try:
         conn = sqlite3.connect(DB_PATH)
 
@@ -48,10 +46,8 @@ def query_arrests_data(year_filter=None):
         return None
 
 
+# funkcja do tworzenia statystyk aresztowań
 def create_arrest_statistics(df):
-    """
-    Tworzy podstawowe statystyki aresztowań z typami przestępstw
-    """
     # Podstawowe statystyki aresztowań według typu przestępstwa
     crime_stats = df.groupby('Typ').agg({
         'Aresztowanie': ['count', 'sum', 'mean']
@@ -65,10 +61,8 @@ def create_arrest_statistics(df):
     return crime_stats
 
 
+# funkcja do tworzenia szczegółowych statystyk
 def create_detailed_statistics(df):
-    """
-    Tworzy szczegółowe statystyki dla każdego typu przestępstwa
-    """
     # Najpierw utworzmy miesięczne agregacje
     monthly_counts = df.groupby(['Typ', 'Rok', 'Miesiac']).size().reset_index(name='count')
 
@@ -118,10 +112,8 @@ def create_detailed_statistics(df):
     return detailed_stats
 
 
+# funkcja do tworzenia dashboardu statystycznego
 def create_statistics_dashboard(df):
-    """
-    Tworzy dashboard statystyczny z podstawowymi i szczegółowymi statystykami
-    """
     crime_stats = create_arrest_statistics(df)
     detailed_stats = create_detailed_statistics(df)
 
@@ -186,10 +178,8 @@ def create_statistics_dashboard(df):
     ])
 
 
+# funkcja do tworzenia komponentu wyboru roku
 def create_year_selector():
-    """
-    Tworzy komponent wyboru roku
-    """
     return dbc.Card(
         dbc.CardBody([
             html.H4("Wybór okresu analizy", className="mb-3"),
@@ -242,12 +232,10 @@ def create_year_selector():
     )
 
 
+# funkcja do tworzenia układu strony
 def layout():
-    """
-    Definiuje układ strony analizy statystycznej
-    """
     return html.Div([
-        html.H1("Analiza Aresztowań", className="mb-4 text-center"),
+        html.H1("Analiza Statystyczna", className="mb-4 text-center"),
         dbc.Row([
             dbc.Col(create_year_selector(), width=12)
         ]),
@@ -255,11 +243,8 @@ def layout():
     ])
 
 
+# funkcja do rejestrowania callbacków
 def register_callbacks(app):
-    """
-    Rejestruje callbacki dla aplikacji
-    """
-
     @app.callback(
         [Output('stats-year-range-container', 'style'),
          Output('stats-single-year-container', 'style')],
@@ -291,6 +276,7 @@ def register_callbacks(app):
          State("stats-date-range-type", "value")],
         prevent_initial_call=True
     )
+    # funkcja do ładowania danych statystycznych
     def load_statistics_data(_, single_year, year_range, range_type):
         year_filter = None
         if range_type == 'single':

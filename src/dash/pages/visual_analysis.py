@@ -11,6 +11,7 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 DB_PATH = os.path.join(project_root, 'scripts', 'chicago_crimes.db')
 
 
+# Funkcja do pobierania danych z bazy danych z opcjonalnym filtrem lat
 def query_database(year_filter=None):
     """Pobieranie danych z bazy z opcjonalnym filtrem lat"""
     try:
@@ -43,6 +44,7 @@ def query_database(year_filter=None):
         return pd.DataFrame()
 
 
+# Funkcja tworząca komunikat o ładowaniu danych
 def create_loading_message():
     """Tworzenie komponentu z komunikatem ładowania"""
     return html.Div([
@@ -50,6 +52,7 @@ def create_loading_message():
     ])
 
 
+# Funkcja tworząca komponent do wyboru lat analizy
 def create_year_selector():
     """Tworzenie komponentu do wyboru lat"""
     return dbc.Card(
@@ -105,6 +108,7 @@ def create_year_selector():
     )
 
 
+# Funkcja tworząca wykresy na podstawie danych
 def create_charts(df, include_map):
     """Tworzenie wykresów na podstawie danych"""
     # Sumaryczna liczba przestępstw na rok
@@ -117,7 +121,11 @@ def create_charts(df, include_map):
         xaxis=dict(
             tickmode='linear',
             tick0=df['Year'].min(),
-            dtick=1
+            dtick=1,
+            title='Rok'
+        ),
+        yaxis=dict(
+            title='Liczba przestępstw'
         )
     )
 
@@ -131,15 +139,21 @@ def create_charts(df, include_map):
         tickmode='array',
         ticktext=['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
                   'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'],
-        tickvals=list(range(1, 13))
+        tickvals=list(range(1, 13)),
+        title='Miesiąc'
     )
+    time_trend.update_yaxes(title='Liczba przestępstw')
 
+    # Rozkład godzinowy
     hourly_trend = px.bar(
         df.groupby('Hour')['count'].sum().reset_index(),
         x='Hour', y='count',
         title='Rozkład przestępstw w ciągu doby'
     )
+    hourly_trend.update_xaxes(title='Godzina')
+    hourly_trend.update_yaxes(title='Liczba przestępstw')
 
+    # Rozkład lokalizacji
     location_dist = px.treemap(
         df.groupby('LocationDescription')['count'].sum().reset_index(),
         path=['LocationDescription'],
@@ -147,6 +161,7 @@ def create_charts(df, include_map):
         title='Rozkład lokalizacji przestępstw'
     )
 
+    # Przestępstwa i aresztowania
     arrest_stats = px.bar(
         df.groupby('PrimaryType').agg({
             'count': 'sum',
@@ -157,6 +172,8 @@ def create_charts(df, include_map):
         title='Przestępstwa vs Aresztowania',
         barmode='group'
     )
+    arrest_stats.update_xaxes(title='Typ przestępstwa')
+    arrest_stats.update_yaxes(title='Liczba')
 
     components = [
         dbc.Row(dbc.Col(dcc.Graph(figure=yearly_stats), width=12), className="mb-4"),
@@ -188,6 +205,7 @@ def create_charts(df, include_map):
     return dbc.Container(components)
 
 
+# Funkcja definiująca główny układ aplikacji
 def layout():
     """Główny układ strony"""
     return html.Div([
@@ -199,6 +217,7 @@ def layout():
     ])
 
 
+# Funkcja rejestrująca callbacki aplikacji
 def register_callbacks(app):
     """Rejestracja callbacków"""
 
