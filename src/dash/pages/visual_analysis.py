@@ -107,6 +107,21 @@ def create_year_selector():
 
 def create_charts(df, include_map):
     """Tworzenie wykresów na podstawie danych"""
+    # Sumaryczna liczba przestępstw na rok
+    yearly_stats = px.bar(
+        df.groupby('Year')['count'].sum().reset_index(),
+        x='Year', y='count',
+        title='Sumaryczna liczba przestępstw na rok'
+    )
+    yearly_stats.update_layout(
+        xaxis=dict(
+            tickmode='linear',
+            tick0=df['Year'].min(),
+            dtick=1
+        )
+    )
+
+    # Trend miesięczny
     time_trend = px.line(
         df.groupby(['Year', 'Month'])['count'].sum().reset_index(),
         x='Month', y='count', color='Year',
@@ -144,6 +159,7 @@ def create_charts(df, include_map):
     )
 
     components = [
+        dbc.Row(dbc.Col(dcc.Graph(figure=yearly_stats), width=12), className="mb-4"),
         dbc.Row(dbc.Col(dcc.Graph(figure=time_trend), width=12), className="mb-4"),
         dbc.Row([
             dbc.Col(dcc.Graph(figure=hourly_trend), width=12),
