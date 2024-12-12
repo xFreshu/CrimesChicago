@@ -166,15 +166,15 @@ def create_time_series_analysis(df, p=1, d=1, q=1):
         fig.add_trace(go.Scatter(
             x=df_ts.index,
             y=df_ts['count'],
-            name='Dane historyczne',
-            line=dict(color='#2ecc71')
+            line=dict(color='#2ecc71'),
+            showlegend=False
         ))
 
         fig.add_trace(go.Scatter(
             x=forecast_mean.index,
             y=forecast_mean,
-            name='Prognoza',
-            line=dict(color='purple', dash='dash')
+            line=dict(color='purple', dash='dash'),
+            showlegend=False
         ))
 
         fig.add_trace(go.Scatter(
@@ -192,8 +192,8 @@ def create_time_series_analysis(df, p=1, d=1, q=1):
             fill='tonexty',
             mode='lines',
             line=dict(color='rgba(128, 0, 128, 0)'),
-            name='Przedział ufności 95%',
-            fillcolor='rgba(128, 0, 128, 0.2)'
+            fillcolor='rgba(128, 0, 128, 0.2)',
+            showlegend=False
         ))
 
         fig.update_layout(
@@ -201,13 +201,7 @@ def create_time_series_analysis(df, p=1, d=1, q=1):
             xaxis_title="Data",
             yaxis_title="Liczba przestępstw",
             height=500,
-            showlegend=True,
-            legend=dict(
-                yanchor="top",
-                y=0.99,
-                xanchor="left",
-                x=0.01
-            )
+            showlegend=False
         )
 
         return dbc.Card([
