@@ -1,5 +1,6 @@
 import pandas as pd
 
+
 def preprocess_and_merge(input_file1, input_file2, output_file):
     try:
         print(f"Wczytywanie pliku: {input_file1}")
@@ -27,7 +28,7 @@ def preprocess_and_merge(input_file1, input_file2, output_file):
 
         # Filtracja zbędnych kolumn
         columns_to_keep = [
-            'ID', 'Case Number', 'Date', 'Primary Type', 'Description',
+            'Case Number', 'Date', 'Primary Type', 'Description',
             'Location Description', 'Arrest', 'Domestic', 'Beat',
             'District', 'Ward', 'Community Area', 'FBI Code', 'Latitude',
             'Longitude', 'Year', 'Month', 'Day', 'Hour', 'X Coordinate', 'Y Coordinate',
