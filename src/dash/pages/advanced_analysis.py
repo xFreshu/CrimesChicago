@@ -126,7 +126,7 @@ def create_year_selector():
                         dcc.Dropdown(
                             id='advanced-single-year-dropdown',
                             options=[{'label': str(year), 'value': year}
-                                     for year in range(2008, 2016)],
+                                     for year in range(2008, 2018)],
                             value=2008,
                             placeholder="Wybierz rok"
                         )
@@ -140,11 +140,11 @@ def create_year_selector():
                         dcc.RangeSlider(
                             id='advanced-year-range-slider',
                             min=2008,
-                            max=2016,
+                            max=2017,
                             step=1,
-                            value=[2008, 2016],
+                            value=[2008, 2017],
                             marks={str(year): str(year)
-                                   for year in range(2008, 2016)}
+                                   for year in range(2008, 2018)}
                         )
                     ]
                 )
@@ -218,21 +218,10 @@ def create_time_series_analysis(df, p=1, d=1, q=1):
             )
         )
 
-        aic = model_fit.aic
-        bic = model_fit.bic
-
-        metrics_div = html.Div([
-            html.H5("Metryki modelu:", className="mt-3"),
-            html.Ul([
-                html.Li(f"AIC: {aic:.2f}"),
-                html.Li(f"BIC: {bic:.2f}")
-            ])
-        ])
-
         return dbc.Card([
             dbc.CardBody([
                 dcc.Graph(figure=fig),
-                metrics_div
+
             ])
         ])
 

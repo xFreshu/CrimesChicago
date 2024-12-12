@@ -2,7 +2,6 @@ from dash import html, dcc, Output, Input, State
 import dash_bootstrap_components as dbc
 import pandas as pd
 import sqlite3
-import numpy as np
 import os
 
 # Konfiguracja ścieżek
