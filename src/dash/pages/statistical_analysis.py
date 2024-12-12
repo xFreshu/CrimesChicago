@@ -1,11 +1,7 @@
-from dash import html, dcc, Output, Input, State, callback_context, ctx
-from dash.exceptions import PreventUpdate
+from dash import html, dcc, Output, Input, State
 import dash_bootstrap_components as dbc
 import pandas as pd
 import sqlite3
-import plotly.express as px
-import plotly.figure_factory as ff
-from scipy import stats
 import numpy as np
 import os
 
@@ -15,88 +11,186 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 DB_PATH = os.path.join(project_root, 'scripts', 'chicago_crimes.db')
 
 
-def query_correlations(year_filter=None):
+def create_loading_message():
+    """Tworzenie komponentu z komunikatem ładowania"""
+    return html.Div([
+        html.H4("Ładowanie danych...", className="text-center mt-4")
+    ])
+
+
+def query_arrests_data(year_filter=None):
+    """
+    Pobiera dane o aresztowaniach i typach przestępstw
+    """
     try:
         conn = sqlite3.connect(DB_PATH)
 
-        # 1. Czas i przestępczość
-        time_query = """
+        query = """
         SELECT 
-            Hour,
-            COUNT(*) as hourly_count,
-            SUM(CASE WHEN Arrest = 1 THEN 1 ELSE 0 END) as arrests,
-            strftime('%w', Date) as day_of_week,
-            Month,
-            Year
-        FROM ChicagoCrimes
-        WHERE 1=1
-        """
-
-        # 2. Typ przestępstwa a lokalizacja
-        location_query = """
-        SELECT 
-            PrimaryType,
-            LocationDescription,
-            District,
-            Ward,
-            CommunityArea,
-            COUNT(*) as count
-        FROM ChicagoCrimes
-        WHERE 1=1
-        """
-
-        # 3. Analiza egzekwowania prawa
-        law_enforcement_query = """
-        SELECT 
-            District,
-            Beat,
-            PrimaryType,
-            COUNT(*) as total_crimes,
-            SUM(CASE WHEN Arrest = 1 THEN 1 ELSE 0 END) as arrests,
-            CAST(SUM(CASE WHEN Arrest = 1 THEN 1 ELSE 0 END) AS FLOAT) / 
-            COUNT(*) as arrest_rate
+            PrimaryType as Typ,
+            Arrest as Aresztowanie,
+            Month as Miesiac,
+            Year as Rok
         FROM ChicagoCrimes
         WHERE 1=1
         """
 
         if isinstance(year_filter, tuple):
-            time_query += f" AND Year BETWEEN {year_filter[0]} AND {year_filter[1]}"
-            location_query += f" AND Year BETWEEN {year_filter[0]} AND {year_filter[1]}"
-            law_enforcement_query += f" AND Year BETWEEN {year_filter[0]} AND {year_filter[1]}"
+            query += f" AND Year BETWEEN {year_filter[0]} AND {year_filter[1]}"
         elif year_filter:
-            time_query += f" AND Year = {year_filter}"
-            location_query += f" AND Year = {year_filter}"
-            law_enforcement_query += f" AND Year = {year_filter}"
+            query += f" AND Year = {year_filter}"
 
-        time_query += " GROUP BY Hour, day_of_week, Month, Year"
-        location_query += " GROUP BY PrimaryType, LocationDescription, District, Ward, CommunityArea"
-        law_enforcement_query += " GROUP BY District, Beat, PrimaryType"
-
-        df_time = pd.read_sql_query(time_query, conn)
-        df_location = pd.read_sql_query(location_query, conn)
-        df_law = pd.read_sql_query(law_enforcement_query, conn)
-
+        df = pd.read_sql_query(query, conn)
         conn.close()
-        return df_time, df_location, df_law
+        return df
 
     except sqlite3.OperationalError as e:
         print(f"Błąd bazy danych: {e}")
-        return None, None, None
+        return None
 
 
-def create_loading_spinner():
+def create_arrest_statistics(df):
+    """
+    Tworzy podstawowe statystyki aresztowań z typami przestępstw
+    """
+    # Podstawowe statystyki aresztowań według typu przestępstwa
+    crime_stats = df.groupby('Typ').agg({
+        'Aresztowanie': ['count', 'sum', 'mean']
+    }).round(3)
+
+    crime_stats = crime_stats.reset_index()
+    crime_stats.columns = ['Typ przestępstwa', 'Liczba przestępstw', 'Liczba aresztowań', 'Wskaźnik aresztowań']
+    crime_stats = crime_stats.sort_values('Liczba przestępstw', ascending=False)
+    crime_stats['Wskaźnik aresztowań'] = crime_stats['Wskaźnik aresztowań'].map(lambda x: f"{x:.1%}")
+
+    return crime_stats
+
+
+def create_detailed_statistics(df):
+    """
+    Tworzy szczegółowe statystyki dla każdego typu przestępstwa
+    """
+    # Najpierw utworzmy miesięczne agregacje
+    monthly_counts = df.groupby(['Typ', 'Rok', 'Miesiac']).size().reset_index(name='count')
+
+    # Teraz możemy obliczyć statystyki dla każdego typu
+    detailed_stats = pd.DataFrame()
+
+    # Podstawowe obliczenia dla każdego typu
+    type_stats = df.groupby('Typ').agg({
+        'Aresztowanie': [
+            ('Całkowita liczba', 'count'),
+            ('% wszystkich przestępstw', lambda x: len(x) / len(df) * 100)
+        ]
+    })
+    type_stats.columns = type_stats.columns.get_level_values(1)
+
+    # Obliczenia na podstawie miesięcznych danych
+    monthly_stats = monthly_counts.groupby('Typ').agg({
+        'count': [
+            ('Średnia miesięczna', 'mean'),
+            ('Minimum miesięczne', 'min'),
+            ('Maximum miesięczne', 'max'),
+            ('Odchylenie standardowe', 'std'),
+            ('Mediana miesięczna', 'median')
+        ]
+    })
+    monthly_stats.columns = monthly_stats.columns.get_level_values(1)
+
+    # Łączymy wszystkie statystyki
+    detailed_stats = pd.concat([type_stats, monthly_stats], axis=1)
+    detailed_stats = detailed_stats.reset_index()
+    detailed_stats.columns = ['Typ przestępstwa', 'Całkowita liczba', '% wszystkich przestępstw',
+                              'Średnia miesięczna', 'Minimum miesięczne', 'Maximum miesięczne',
+                              'Odchylenie standardowe', 'Mediana miesięczna']
+
+    # Formatowanie liczb
+    detailed_stats['Całkowita liczba'] = detailed_stats['Całkowita liczba'].astype(int)
+    detailed_stats['% wszystkich przestępstw'] = detailed_stats['% wszystkich przestępstw'].map(lambda x: f"{x:.2f}%")
+    detailed_stats['Średnia miesięczna'] = detailed_stats['Średnia miesięczna'].round(1)
+    detailed_stats['Minimum miesięczne'] = detailed_stats['Minimum miesięczne'].astype(int)
+    detailed_stats['Maximum miesięczne'] = detailed_stats['Maximum miesięczne'].astype(int)
+    detailed_stats['Odchylenie standardowe'] = detailed_stats['Odchylenie standardowe'].round(2)
+    detailed_stats['Mediana miesięczna'] = detailed_stats['Mediana miesięczna'].round(1)
+
+    # Sortowanie według całkowitej liczby przestępstw
+    detailed_stats = detailed_stats.sort_values('Całkowita liczba', ascending=False)
+
+    return detailed_stats
+
+
+def create_statistics_dashboard(df):
+    """
+    Tworzy dashboard statystyczny z podstawowymi i szczegółowymi statystykami
+    """
+    crime_stats = create_arrest_statistics(df)
+    detailed_stats = create_detailed_statistics(df)
+
+    # Obliczanie sumarycznych statystyk
+    total_crimes = df['Aresztowanie'].count()
+    total_arrests = df['Aresztowanie'].sum()
+    overall_rate = total_arrests / total_crimes
+    unique_types = df['Typ'].nunique()
+    avg_crimes_per_type = total_crimes / unique_types
+
     return dbc.Container([
+        html.H3("Podsumowanie", className="mt-4 mb-3"),
         dbc.Row([
-            dbc.Col(html.Div([
-                dbc.Spinner(color="primary", size="lg", fullscreen=True, children=[
-                    html.H4("Ładowanie danych...", className="text-center mt-3")
-                ])
-            ]), width=12)
+            dbc.Col(
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H5("Statystyki ogólne"),
+                        html.P([
+                            f"Całkowita liczba przestępstw: {total_crimes:,}",
+                            html.Br(),
+                            f"Liczba aresztowań: {total_arrests:,}",
+                            html.Br(),
+                            f"Ogólny wskaźnik aresztowań: {overall_rate:.1%}",
+                            html.Br(),
+                            f"Liczba typów przestępstw: {unique_types}",
+                            html.Br(),
+                            f"Średnia liczba przestępstw na typ: {avg_crimes_per_type:,.0f}"
+                        ])
+                    ])
+                ]),
+                width=12
+            )
+        ]),
+
+        html.H3("Podstawowa Analiza według Typu Przestępstwa", className="mt-4 mb-3"),
+        dbc.Row([
+            dbc.Col(
+                dbc.Table.from_dataframe(
+                    crime_stats,
+                    striped=True,
+                    bordered=True,
+                    hover=True,
+                    className="text-start"
+                ),
+                width=12
+            )
+        ]),
+
+        html.H3("Szczegółowa Analiza Statystyczna", className="mt-4 mb-3"),
+        dbc.Row([
+            dbc.Col(
+                dbc.Table.from_dataframe(
+                    detailed_stats,
+                    striped=True,
+                    bordered=True,
+                    hover=True,
+                    className="text-start"
+                ),
+                width=12
+            )
         ])
     ])
 
 
 def create_year_selector():
+    """
+    Tworzy komponent wyboru roku
+    """
     return dbc.Card(
         dbc.CardBody([
             html.H4("Wybór okresu analizy", className="mb-3"),
@@ -139,7 +233,7 @@ def create_year_selector():
                 )
             ]),
             dbc.Button(
-                "Generuj diagramy",
+                "Generuj analizę",
                 id="stats-generate-button",
                 color="primary",
                 className="mt-3 w-100"
@@ -149,84 +243,12 @@ def create_year_selector():
     )
 
 
-def create_time_correlation_analysis(df_time):
-    df_time['day_of_week'] = pd.to_numeric(df_time['day_of_week'])
-    days = ['Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota', 'Niedziela']
-
-    hourly_trend = px.line(
-        df_time.groupby('Hour')['hourly_count'].mean().reset_index(),
-        x='Hour',
-        y='hourly_count',
-        title='Rozkład przestępstw w ciągu doby',
-        labels={'hourly_count': 'Średnia liczba przestępstw', 'Hour': 'Godzina'}
-    )
-    hourly_trend.update_layout(template="plotly_white")
-
-    weekly_trend = px.bar(
-        df_time.groupby('day_of_week')['hourly_count'].mean().reset_index(),
-        x='day_of_week',
-        y='hourly_count',
-        title='Rozkład przestępstw w ciągu tygodnia',
-        labels={'hourly_count': 'Średnia liczba przestępstw', 'day_of_week': 'Dzień tygodnia'}
-    )
-    weekly_trend.update_xaxes(ticktext=days, tickvals=list(range(7)))
-    weekly_trend.update_layout(template="plotly_white")
-
-    return hourly_trend, weekly_trend
-
-
-def create_law_enforcement_analysis(df_law):
-    arrest_rate = px.bar(
-        df_law.groupby('District')['arrest_rate'].mean().reset_index(),
-        x='District',
-        y='arrest_rate',
-        title='Wskaźnik aresztowań według dystryktu',
-        labels={'arrest_rate': 'Wskaźnik aresztowań', 'District': 'Dystrykt'}
-    )
-    arrest_rate.update_layout(template="plotly_white")
-
-    crime_arrest_rate = px.bar(
-        df_law.groupby('PrimaryType').agg({
-            'total_crimes': 'sum',
-            'arrests': 'sum'
-        }).reset_index().nlargest(10, 'total_crimes'),
-        x='PrimaryType',
-        y=['total_crimes', 'arrests'],
-        title='Przestępstwa vs Aresztowania według typu',
-        barmode='group',
-        labels={
-            'total_crimes': 'Całkowita liczba przestępstw',
-            'arrests': 'Liczba aresztowań',
-            'PrimaryType': 'Typ przestępstwa'
-        }
-    )
-    crime_arrest_rate.update_layout(template="plotly_white")
-
-    return arrest_rate, crime_arrest_rate
-
-
-def create_correlation_dashboard(df_time, df_location, df_law):
-    hourly_trend, weekly_trend = create_time_correlation_analysis(df_time)
-    arrest_rate, crime_arrest_rate = create_law_enforcement_analysis(df_law)
-
-    return dbc.Container([
-        html.H3("1. Analiza czasowa przestępczości", className="mt-4 mb-3"),
-        dbc.Row([
-            dbc.Col(dcc.Graph(figure=hourly_trend), width=12),
-            dbc.Col(dcc.Graph(figure=weekly_trend), width=12)
-        ], className="mb-4"),
-
-        html.H3("2. Analiza egzekwowania prawa", className="mt-4 mb-3"),
-        dbc.Row([
-            dbc.Col(dcc.Graph(figure=arrest_rate), width=12),
-            dbc.Col(dcc.Graph(figure=crime_arrest_rate), width=12)
-        ], className="mb-4")
-    ])
-
-
 def layout():
+    """
+    Definiuje układ strony analizy statystycznej
+    """
     return html.Div([
-        html.H1("Analiza Statystyczna", className="mb-4 text-center"),
+        html.H1("Analiza Aresztowań", className="mb-4 text-center"),
         dbc.Row([
             dbc.Col(create_year_selector(), width=12)
         ]),
@@ -235,6 +257,10 @@ def layout():
 
 
 def register_callbacks(app):
+    """
+    Rejestruje callbacki dla aplikacji
+    """
+
     @app.callback(
         [Output('stats-year-range-container', 'style'),
          Output('stats-single-year-container', 'style')],
@@ -252,10 +278,11 @@ def register_callbacks(app):
          State("stats-year-range-slider", "value"),
          State("stats-date-range-type", "value")]
     )
-    def update_correlations(n_clicks, single_year, year_range, range_type):
+    def update_statistics(n_clicks, single_year, year_range, range_type):
         if n_clicks is None:
             return html.Div()
-        return create_loading_spinner()
+
+        return create_loading_message()
 
     @app.callback(
         Output("stats-content", "children", allow_duplicate=True),
@@ -265,20 +292,20 @@ def register_callbacks(app):
          State("stats-date-range-type", "value")],
         prevent_initial_call=True
     )
-    def load_correlation_data(_, single_year, year_range, range_type):
+    def load_statistics_data(_, single_year, year_range, range_type):
         year_filter = None
         if range_type == 'single':
             year_filter = single_year
         else:
             year_filter = tuple(year_range)
 
-        df_time, df_location, df_law = query_correlations(year_filter)
+        df = query_arrests_data(year_filter)
 
-        if df_time is None:
+        if df is None:
             return dbc.Alert(
                 "Błąd podczas pobierania danych.",
                 color="danger",
                 className="mt-3"
             )
 
-        return create_correlation_dashboard(df_time, df_location, df_law)
+        return create_statistics_dashboard(df)
